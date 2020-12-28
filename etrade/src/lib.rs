@@ -4,18 +4,15 @@ extern crate serde;
 #[macro_use]
 extern crate log;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
-use oauth1_request::{Credentials, Request};
+use oauth1_request::Credentials;
 use reqwest::header::{self, HeaderMap};
-use reqwest_oauth1::{
-    OAuthClientProvider, Secrets, SecretsProvider, Signer, TokenReader, TokenReaderFuture,
-    TokenResponse,
-};
-use secstr::{SecStr, SecUtf8};
+use reqwest_oauth1::{OAuthClientProvider, Secrets, Signer, TokenReader};
+use secstr::SecUtf8;
 use serde::export::Formatter;
 use std::fmt::Display;
-use std::future::Future;
-use std::intrinsics::write_bytes;
+
 use thiserror::Error;
 
 // The sandbox url to use as base url for the etrade api
@@ -29,6 +26,7 @@ pub enum Error {
     Reqwest(#[from] reqwest::Error),
     Oauth(#[from] reqwest_oauth1::Error),
     Json(#[from] serde_json::Error),
+    Genric(#[from] anyhow::Error),
 }
 
 impl Display for Error {
@@ -61,7 +59,7 @@ trait AuthProvider {
 pub struct AuthenticatedClient {
     base_url: &'static str,
     consumer: (SecUtf8, SecUtf8),
-    request_token: (SecUtf8, SecUtf8),
+    request_token: Option<(SecUtf8, SecUtf8)>,
     token: (SecUtf8, SecUtf8),
     http: reqwest::Client,
 }
@@ -70,15 +68,15 @@ impl AuthenticatedClient {
     pub fn sandbox(
         consumer_key: SecUtf8,
         consumer_secret: SecUtf8,
-        request_token_key: SecUtf8,
-        request_token_secret: SecUtf8,
+        request_token_key: Option<SecUtf8>,
+        request_token_secret: Option<SecUtf8>,
         token_key: SecUtf8,
         token_secret: SecUtf8,
     ) -> AuthenticatedClient {
         Self::new(
             SANDBOX_URL,
             (consumer_key, consumer_secret),
-            (request_token_key, request_token_secret),
+            request_token_key.and_then(|v| request_token_secret.and_then(|vv| Some((v, vv)))),
             (token_key, token_secret),
         )
     }
@@ -86,15 +84,15 @@ impl AuthenticatedClient {
     pub fn live(
         consumer_key: SecUtf8,
         consumer_secret: SecUtf8,
-        request_token_key: SecUtf8,
-        request_token_secret: SecUtf8,
+        request_token_key: Option<SecUtf8>,
+        request_token_secret: Option<SecUtf8>,
         token_key: SecUtf8,
         token_secret: SecUtf8,
     ) -> AuthenticatedClient {
         Self::new(
             LIVE_URL,
             (consumer_key, consumer_secret),
-            (request_token_key, request_token_secret),
+            request_token_key.and_then(|v| request_token_secret.and_then(|vv| Some((v, vv)))),
             (token_key, token_secret),
         )
     }
@@ -102,7 +100,7 @@ impl AuthenticatedClient {
     fn new(
         base_url: &'static str,
         consumer: (SecUtf8, SecUtf8),
-        request_token: (SecUtf8, SecUtf8),
+        request_token: Option<(SecUtf8, SecUtf8)>,
         token: (SecUtf8, SecUtf8),
     ) -> AuthenticatedClient {
         let mut headers = HeaderMap::new();
@@ -169,12 +167,16 @@ impl AuthenticatedClient {
 
     pub async fn renew_access_token(&self) -> Result<AccessToken> {
         debug!("renewing access token");
+        if self.request_token.is_none() {
+            return Err(anyhow!("request token required for renewing the access token").into());
+        }
         let secrets = Secrets::new(self.consumer.0.unsecure(), self.consumer.1.unsecure());
+
         self.http
             .clone()
             .oauth1(secrets.token(
-                self.request_token.0.unsecure(),
-                self.request_token.1.unsecure(),
+                self.request_token.as_ref().unwrap().0.unsecure(),
+                self.request_token.as_ref().unwrap().1.unsecure(),
             ))
             .get("https://api.etrade.com/oauth/renew_access_token")
             .send()
