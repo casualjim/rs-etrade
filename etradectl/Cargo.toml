@@ -31,9 +31,11 @@ libsodium-sys = { version = "0" }
 # pre = { version = "=0.2" }
 thiserror = "*"
 colored_json = "*"
-# etrade = { path = "../etrade" }
+etrade = { path = "../etrade" }
 async-trait = "0.1"
 oauth = { version="0.4", package = "oauth1-request" }
 oauth-credentials = { version = "0.2", features = ["serde"] }
 tower-service = "0.3"
 pin-project = "1"
+chrono = "0.4"
+chrono-tz = "0.5"

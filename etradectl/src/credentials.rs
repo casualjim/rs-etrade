@@ -1,9 +1,8 @@
 use secstr::SecUtf8;
 
-use crate::etrade::Store;
 use anyhow::{anyhow, Result};
+use etrade::Store;
 use secret_service::{EncryptionType, SecretService};
-use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct SecretServiceStore {
@@ -99,13 +98,22 @@ impl Store for SecretServiceStore {
 #[cfg(test)]
 mod tests {
     use crate::{credentials::SecretServiceStore, etrade};
-
-    use etrade::tests::verify_token_store;
-    use etrade::Store;
+    use anyhow::Result;
     use secstr::SecUtf8;
 
     #[test]
     fn test_secret_service_store() {
         verify_token_store(SecretServiceStore::new().unwrap())
+    }
+
+    fn verify_token_store(token_store: impl etrade::Store) {
+        let expected: Result<SecUtf8> = Ok("hello".into());
+        token_store.put("my_svc", "api_key", "hello").unwrap();
+        assert_eq!(
+            token_store.get("my_svc", "api_key").ok(),
+            Some(expected.ok())
+        );
+        assert!(token_store.del("my_svc", "api_key").is_ok());
+        assert!(token_store.get("my_svc", "api_key").unwrap().is_none());
     }
 }
