@@ -14,6 +14,7 @@ mod accounts;
 mod session;
 
 pub use accounts::Api as Accounts;
+pub use accounts::PortfolioRequest;
 pub use session::Session;
 pub use session::OOB;
 

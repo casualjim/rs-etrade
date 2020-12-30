@@ -1,10 +1,9 @@
 mod credentials;
-use etrade;
+use etrade::{self, PortfolioRequest};
 
 use anyhow::Result;
 use colored_json::to_colored_json_auto;
 use credentials::SecretServiceStore;
-use std::io;
 // use etrade::{Account, AuthenticatedClient};
 
 #[tokio::main]
@@ -26,6 +25,14 @@ async fn main() -> Result<()> {
         println!(
             "{}",
             to_colored_json_auto(&serde_json::to_value(&balance)?)?
+        );
+
+        let portfolio = accounts
+            .portfolio(&account, PortfolioRequest::default(), oob)
+            .await?;
+        println!(
+            "{}",
+            to_colored_json_auto(&serde_json::to_value(&portfolio)?)?
         );
     }
 

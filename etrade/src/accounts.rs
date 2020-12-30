@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use super::{session, Session, Store};
 use anyhow::Result;
 use http::Method;
@@ -50,15 +52,34 @@ where
         )?)
     }
 
-    pub async fn portfolio(&self, params: PortfolioRequest) -> Result<PortfolioResponse> {
-        todo!()
+    pub async fn portfolio(
+        &self,
+        account: &Account,
+        params: PortfolioRequest,
+        callbacks: impl CallbackProvider,
+    ) -> Result<PortfolioResponse> {
+        let qss = serde_urlencoded::to_string(&params)?;
+        let qs: BTreeSet<(String, String)> = serde_urlencoded::from_str(&qss)?;
+        let qsv = if qs.is_empty() { None } else { Some(qs) };
+
+        let portfolio: serde_json::Value = self
+            .session
+            .send(
+                Method::GET,
+                format!("/v1/accounts/{}/portfolio", account.account_id_key),
+                qsv,
+                callbacks,
+            )
+            .await?;
+        Ok(serde_json::from_value(
+            portfolio.get("PortfolioResponse").unwrap().clone(),
+        )?)
     }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PortfolioRequest {
-    pub account_id_key: String,
     pub count: Option<usize>,
     pub sort_by: Option<PortfolioColumn>,
     pub sort_order: Option<SortOrder>,
@@ -422,6 +443,7 @@ pub struct RealTimeValues {
 #[serde(rename_all = "camelCase", default)]
 pub struct PortfolioResponse {
     pub totals: Option<PortfolioTotals>,
+    #[serde(rename = "AccountPortfolio")]
     pub account_portfolio: Vec<AccountPortfolio>,
 }
 
@@ -443,6 +465,7 @@ pub struct AccountPortfolio {
     pub next: String,
     pub total_no_of_pages: i32,
     pub next_page_no: String,
+    #[serde(rename = "Position")]
     pub position: Vec<PortfolioPosition>,
 }
 
@@ -451,6 +474,7 @@ pub struct AccountPortfolio {
 pub struct PortfolioPosition {
     pub position_id: i64,
     pub account_id: String,
+    #[serde(rename = "Product")]
     pub product: Product,
     pub osi_key: String,
     pub symbol_description: String,
@@ -458,19 +482,6 @@ pub struct PortfolioPosition {
     pub price_paid: f64,
     pub price: f64,
     pub commissions: f64,
-}
-#[derive(Debug, Deserialize, Serialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct Product {
-    pub symbol: String,
-    pub security_type: String,
-    pub security_sub_type: String,
-    pub call_put: String,
-    pub expiry_year: i32,
-    pub expiry_month: i32,
-    pub expiry_day: i32,
-    pub strike_price: f64,
-    pub expiry_type: String,
     pub other_fees: f64,
     pub quantity: f64,
     pub position_indicator: String,
@@ -493,14 +504,32 @@ pub struct Product {
     #[serde(rename = "dateTimeUTC")]
     pub date_time_utc: i64,
     pub adj_prev_close: f64,
+    #[serde(rename = "Performance")]
     pub performance: Option<PerformanceView>,
+    #[serde(rename = "Fundamental")]
     pub fundamental: Option<FundamentalView>,
+    #[serde(rename = "OptionsWatch")]
     pub options_watch: Option<OptionsWatchView>,
+    #[serde(rename = "Quick")]
     pub quick: Option<QuickView>,
+    #[serde(rename = "Complete")]
     pub complete: Option<CompleteView>,
     pub lots_details: String,
     pub quote_details: String,
     pub position_lot: Vec<PositionLot>,
+}
+#[derive(Debug, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Product {
+    pub symbol: String,
+    pub security_type: String,
+    pub security_sub_type: String,
+    pub call_put: String,
+    pub expiry_year: i32,
+    pub expiry_month: i32,
+    pub expiry_day: i32,
+    pub strike_price: f64,
+    pub expiry_type: String,
 }
 #[derive(Debug, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase", default)]
