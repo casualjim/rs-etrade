@@ -41,13 +41,6 @@ const REQUEST_TOKEN_URL: &str = "https://api.etrade.com/oauth/request_token";
 const ACCESS_TOKEN_URL: &str = "https://api.etrade.com/oauth/access_token";
 const RENEW_ACCESS_TOKEN_URL: &str = "https://api.etrade.com/oauth/renew_access_token";
 
-// #[async_trait]
-// pub trait AuthProvider {
-//     async fn consumer() -> Result<Credentials<SecUtf8>>;
-//     async fn request_token() -> Result<Credentials<SecUtf8>>;
-//     async fn access_token() -> Result<Credentials<SecUtf8>>;
-// }
-
 type HttpClient = Client<HttpsConnector<HttpConnector<GaiResolver>>, hyper::Body>;
 
 #[async_trait]

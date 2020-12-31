@@ -4,7 +4,10 @@ extern crate log;
 #[macro_use]
 extern crate serde;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+};
 
 use anyhow::Result;
 use secstr::SecUtf8;
@@ -25,6 +28,17 @@ const SANDBOX_URL: &str = "https://apisb.etrade.com";
 // The production url to use as base url for the etrade api
 const LIVE_URL: &str = "https://api.etrade.com";
 
+fn qs_params<'a, T: serde::Serialize + serde::Deserialize<'a>>(
+    params: &T,
+) -> Result<Option<BTreeSet<(String, String)>>> {
+    let qss = serde_urlencoded::to_string(params)?;
+    let qs: BTreeSet<(String, String)> = serde_urlencoded::from_str(&qss)?;
+    if qs.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(qs))
+    }
+}
 pub enum Mode {
     Sandbox,
     Live,

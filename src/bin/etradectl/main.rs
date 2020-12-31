@@ -1,20 +1,21 @@
 mod credentials;
 use std::env;
 
+use accounts::BalanceRequest;
 use anyhow::{anyhow, Result};
 use bat::{Input, PrettyPrinter};
 use credentials::SecretServiceStore;
 use etrade;
-use etrade::{accounts, SecurityType, MarketSession};
+use etrade::orders::{ListOrdersRequest, OrderStatus, TransactionType};
+use etrade::{accounts, MarketSession, SecurityType};
 use serde::Serialize;
-use structopt::StructOpt;
-use etrade::orders::{OrderStatus, TransactionType, ListOrdersRequest};
 use std::sync::Arc;
+use structopt::StructOpt;
 // use etrade::{Account, AuthenticatedClient};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    std::env::set_var("RUST_LOG", "info");
+    std::env::set_var("RUST_LOG", "info,etrade=debug,etradectl=debug");
     pretty_env_logger::init();
 
     let store = SecretServiceStore::new()?;
@@ -27,7 +28,7 @@ async fn main() -> Result<()> {
         Cmd::Accounts {
             cmd: AccountCmd::List,
         } => {
-            let account_list = accounts.account_list(oob).await?;
+            let account_list = accounts.list(oob).await?;
             pretty_print(&account_list)?;
         }
         Cmd::Accounts {
@@ -37,9 +38,16 @@ async fn main() -> Result<()> {
                     real_time,
                 },
         } => {
-            let mut acc = accounts::Account::default();
-            acc.account_id_key = account_id;
-            let balance = accounts.account_balance(&acc, real_time, oob).await?;
+            let balance = accounts
+                .balance(
+                    &account_id,
+                    BalanceRequest {
+                        real_time_nav: if real_time { Some(real_time) } else { None },
+                        ..Default::default()
+                    },
+                    oob,
+                )
+                .await?;
             pretty_print(&balance)?;
         }
         Cmd::Accounts {
@@ -55,11 +63,9 @@ async fn main() -> Result<()> {
                     view,
                 },
         } => {
-            let mut acc = accounts::Account::default();
-            acc.account_id_key = account_id;
             let portfolio = accounts
                 .portfolio(
-                    &acc,
+                    &account_id,
                     accounts::PortfolioRequest {
                         count,
                         sort_by,
@@ -75,32 +81,37 @@ async fn main() -> Result<()> {
             pretty_print(&portfolio)?;
         }
         Cmd::Orders {
-            cmd: OrdersCmd::List {
-                account_id,
-                marker,
-                count,
-                status,
-                from_date,
-                to_date,
-                symbol,
-                security_type,
-                transaction_type,
-                market_session,
-            },
+            cmd:
+                OrdersCmd::List {
+                    account_id,
+                    marker,
+                    count,
+                    status,
+                    from_date,
+                    to_date,
+                    symbol,
+                    security_type,
+                    transaction_type,
+                    market_session,
+                },
         } => {
-            let mut acc = accounts::Account::default();
-            acc.account_id_key = account_id;
-            let results = orders.list_orders(&acc, ListOrdersRequest{
-                marker,
-                count,
-                status,
-                from_date,
-                to_date,
-                symbol,
-                security_type,
-                transaction_type,
-                market_session,
-            }, oob).await?;
+            let results = orders
+                .list(
+                    &account_id,
+                    ListOrdersRequest {
+                        marker,
+                        count,
+                        status,
+                        from_date,
+                        to_date,
+                        symbol,
+                        security_type,
+                        transaction_type,
+                        market_session,
+                    },
+                    oob,
+                )
+                .await?;
             pretty_print(&results)?;
         }
     };
@@ -137,10 +148,10 @@ enum Cmd {
     Orders {
         #[structopt(subcommand)]
         cmd: OrdersCmd,
-    }
+    },
 }
 
-#[derive(Debug,StructOpt)]
+#[derive(Debug, StructOpt)]
 enum OrdersCmd {
     /// List the orders
     List {
@@ -174,7 +185,7 @@ enum OrdersCmd {
         #[structopt(long)]
         /// Session in which the equity order will be place
         market_session: Option<MarketSession>,
-    }
+    },
 }
 
 #[derive(Debug, StructOpt)]

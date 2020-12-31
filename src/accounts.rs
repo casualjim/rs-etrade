@@ -1,13 +1,11 @@
-use std::collections::BTreeSet;
-
 use super::{session, Session, Store};
+use crate::Product;
+use crate::{qs_params, MarketSession};
 use anyhow::Result;
 use http::Method;
 use session::CallbackProvider;
-use strum::EnumString;
-use crate::Product;
-use crate::MarketSession;
 use std::sync::Arc;
+use strum::EnumString;
 
 fn no_body() -> Option<()> {
     None
@@ -25,7 +23,7 @@ where
         Self { session }
     }
 
-    pub async fn account_list(&self, callbacks: impl CallbackProvider) -> Result<Vec<Account>> {
+    pub async fn list(&self, callbacks: impl CallbackProvider) -> Result<Vec<Account>> {
         let resp: AccountListResponse = self
             .session
             .send(Method::GET, "/v1/accounts/list", no_body(), callbacks)
@@ -33,24 +31,22 @@ where
         Ok(resp.response.accounts.account)
     }
 
-    pub async fn account_balance(
+    pub async fn balance<'a>(
         &self,
-        account: &Account,
-        real_time: bool,
+        account_id_key: &str,
+        balance_request: BalanceRequest<'a>,
         callbacks: impl CallbackProvider,
     ) -> Result<BalanceResponse> {
         let balance: serde_json::Value = self
             .session
             .send(
                 Method::GET,
-                format!("/v1/accounts/{}/balance", account.account_id_key),
-                Some(&[
-                    ("instType", &account.institution_type),
-                    ("realTimeNAV", &real_time.to_string()),
-                ]),
+                format!("/v1/accounts/{}/balance", account_id_key),
+                qs_params(&balance_request)?,
                 callbacks,
             )
             .await?;
+        debug!("balance json: {}", serde_json::to_string_pretty(&balance)?);
         Ok(serde_json::from_value(
             balance.get("BalanceResponse").unwrap().clone(),
         )?)
@@ -58,23 +54,23 @@ where
 
     pub async fn portfolio(
         &self,
-        account: &Account,
+        account_id_key: &str,
         params: PortfolioRequest,
         callbacks: impl CallbackProvider,
     ) -> Result<PortfolioResponse> {
-        let qss = serde_urlencoded::to_string(&params)?;
-        let qs: BTreeSet<(String, String)> = serde_urlencoded::from_str(&qss)?;
-        let qsv = if qs.is_empty() { None } else { Some(qs) };
-
         let portfolio: serde_json::Value = self
             .session
             .send(
                 Method::GET,
-                format!("/v1/accounts/{}/portfolio", account.account_id_key),
-                qsv,
+                format!("/v1/accounts/{}/portfolio", account_id_key),
+                qs_params(&params)?,
                 callbacks,
             )
             .await?;
+        debug!(
+            "portfolio json: {}",
+            serde_json::to_string_pretty(&portfolio)?
+        );
         Ok(serde_json::from_value(
             portfolio.get("PortfolioResponse").unwrap().clone(),
         )?)
@@ -93,6 +89,200 @@ pub struct PortfolioRequest {
     pub view: Option<PortfolioView>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BalanceRequest<'a> {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_type: Option<AccountType>,
+    pub inst_type: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub real_time_nav: Option<bool>,
+}
+
+impl<'a> Default for BalanceRequest<'a> {
+    fn default() -> Self {
+        Self {
+            inst_type: "BROKERAGE",
+            account_type: None,
+            real_time_nav: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
+#[strum(serialize_all = "lowercase")]
+pub enum AccountType {
+    #[serde(rename = "AMMCHK")]
+    Ammchk,
+    #[serde(rename = "ARO")]
+    Aro,
+    #[serde(rename = "BCHK")]
+    Bchk,
+    #[serde(rename = "BENFIRA")]
+    Benfira,
+    #[serde(rename = "BENFROTHIRA")]
+    Benfrothira,
+    #[serde(rename = "BENF_ESTATE_IRA")]
+    BenfEstateIra,
+    #[serde(rename = "BENF_MINOR_IRA")]
+    BenfMinorIra,
+    #[serde(rename = "BENF_ROTH_ESTATE_IRA")]
+    BenfRothEstateIra,
+    #[serde(rename = "BENF_ROTH_MINOR_IRA")]
+    BenfRothMinorIra,
+    #[serde(rename = "BENF_ROTH_TRUST_IRA")]
+    BenfRothTrustIra,
+    #[serde(rename = "BENF_TRUST_IRA")]
+    BenfTrustIra,
+    #[serde(rename = "BRKCD")]
+    Brkcd,
+    #[serde(rename = "BROKER")]
+    Broker,
+    #[serde(rename = "CASH")]
+    Cash,
+    #[serde(rename = "C_CORP")]
+    CCorp,
+    #[serde(rename = "CONTRIBUTORY")]
+    Contributory,
+    #[serde(rename = "COVERDELL_ESA")]
+    CoverdellEsa,
+    #[serde(rename = "CONVERSION_ROTH_IRA")]
+    ConversionRothIra,
+    #[serde(rename = "CREDITCARD")]
+    Creditcard,
+    #[serde(rename = "COMM_PROP")]
+    CommProp,
+    #[serde(rename = "CONSERVATOR")]
+    Conservator,
+    #[serde(rename = "CORPORATION")]
+    Corporation,
+    #[serde(rename = "CSA")]
+    Csa,
+    #[serde(rename = "CUSTODIAL")]
+    Custodial,
+    #[serde(rename = "DVP")]
+    Dvp,
+    #[serde(rename = "ESTATE")]
+    Estate,
+    #[serde(rename = "EMPCHK")]
+    Empchk,
+    #[serde(rename = "EMPMMCA")]
+    Empmmca,
+    #[serde(rename = "ETCHK")]
+    Etchk,
+    #[serde(rename = "ETMMCHK")]
+    Etmmchk,
+    #[serde(rename = "HEIL")]
+    Heil,
+    #[serde(rename = "HELOC")]
+    Heloc,
+    #[serde(rename = "INDCHK")]
+    Indchk,
+    #[serde(rename = "INDIVIDUAL")]
+    Individual,
+    #[serde(rename = "INDIVIDUAL_K")]
+    IndividualK,
+    #[serde(rename = "INVCLUB")]
+    Invclub,
+    #[serde(rename = "INVCLUB_C_CORP")]
+    InvclubCCorp,
+    #[serde(rename = "INVCLUB_LLC_C_CORP")]
+    InvclubLlcCCorp,
+    #[serde(rename = "INVCLUB_LLC_PARTNERSHIP")]
+    InvclubLlcPartnership,
+    #[serde(rename = "INVCLUB_LLC_S_CORP")]
+    InvclubLlcSCorp,
+    #[serde(rename = "INVCLUB_PARTNERSHIP")]
+    InvclubPartnership,
+    #[serde(rename = "INVCLUB_S_CORP")]
+    InvclubSCorp,
+    #[serde(rename = "INVCLUB_TRUST")]
+    InvclubTrust,
+    #[serde(rename = "IRA_ROLLOVER")]
+    IraRollover,
+    #[serde(rename = "JOINT")]
+    Joint,
+    #[serde(rename = "JTTEN")]
+    Jtten,
+    #[serde(rename = "JTWROS")]
+    Jtwros,
+    #[serde(rename = "LLC_C_CORP")]
+    LlcCCorp,
+    #[serde(rename = "LLC_PARTNERSHIP")]
+    LlcPartnership,
+    #[serde(rename = "LLC_S_CORP")]
+    LlcSCorp,
+    #[serde(rename = "LLP")]
+    Llp,
+    #[serde(rename = "LLP_C_CORP")]
+    LlpCCorp,
+    #[serde(rename = "LLP_S_CORP")]
+    LlpSCorp,
+    #[serde(rename = "IRA")]
+    Ira,
+    #[serde(rename = "IRACD")]
+    Iracd,
+    #[serde(rename = "MONEY_PURCHASE")]
+    MoneyPurchase,
+    #[serde(rename = "MARGIN")]
+    Margin,
+    #[serde(rename = "MRCHK")]
+    Mrchk,
+    #[serde(rename = "MUTUAL_FUND")]
+    MutualFund,
+    #[serde(rename = "NONCUSTODIAL")]
+    Noncustodial,
+    #[serde(rename = "NON_PROFIT")]
+    NonProfit,
+    #[serde(rename = "OTHER")]
+    Other,
+    #[serde(rename = "PARTNER")]
+    Partner,
+    #[serde(rename = "PARTNERSHIP")]
+    Partnership,
+    #[serde(rename = "PARTNERSHIP_C_CORP")]
+    PartnershipCCorp,
+    #[serde(rename = "PARTNERSHIP_S_CORP")]
+    PartnershipSCorp,
+    #[serde(rename = "PDT_ACCOUNT")]
+    PdtAccount,
+    #[serde(rename = "PM_ACCOUNT")]
+    PmAccount,
+    #[serde(rename = "PREFCD")]
+    Prefcd,
+    #[serde(rename = "PREFIRACD")]
+    Prefiracd,
+    #[serde(rename = "PROFIT_SHARING")]
+    ProfitSharing,
+    #[serde(rename = "PROPRIETARY")]
+    Proprietary,
+    #[serde(rename = "REGCD")]
+    Regcd,
+    #[serde(rename = "ROTHIRA")]
+    Rothira,
+    #[serde(rename = "ROTH_INDIVIDUAL_K")]
+    RothIndividualK,
+    #[serde(rename = "ROTH_IRA_MINORS")]
+    RothIraMinors,
+    #[serde(rename = "SARSEPIRA")]
+    Sarsepira,
+    #[serde(rename = "S_CORP")]
+    SCorp,
+    #[serde(rename = "SEPIRA")]
+    Sepira,
+    #[serde(rename = "SIMPLE_IRA")]
+    SimpleIra,
+    #[serde(rename = "TIC")]
+    Tic,
+    #[serde(rename = "TRD_IRA_MINORS")]
+    TrdIraMinors,
+    #[serde(rename = "TRUST")]
+    Trust,
+    #[serde(rename = "VARCD")]
+    Varcd,
+    #[serde(rename = "VARIRACD")]
+    Variracd,
+}
 #[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
 #[strum(serialize_all = "lowercase")]
 pub enum SortOrder {
