@@ -1,19 +1,18 @@
 use crate::{Credentials, Mode, Store};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use bytes::{buf::BufExt, Buf as _};
+use bytes::buf::BufExt;
 use chrono::{NaiveDate, Utc};
 use http::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
-    Method, Request, Response, Uri,
+    Method, Request, Response,
 };
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 use tokio::io::{self, *};
 
 use hyper::{
-    body::HttpBody,
     client::{connect::dns::GaiResolver, HttpConnector},
     Client,
 };

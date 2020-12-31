@@ -1,3 +1,46 @@
-[workspace]
+[package]
+name = "etrade"
+version = "0.1.0"
+authors = ["Ivan Porto Carrero <ivan@flanders.co.nz>"]
+edition = "2018"
+readme = "README.md"
 
-members = ["etrade", "etradectl"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+http = "0.2"
+http-body = "0.3"
+hyper = { version = "0.13" }
+hyper-tls = "0.4"
+# tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+futures="0.3"
+anyhow="1"
+bytes = "0.5"
+tokio = {version="0.2", features=["full"]}
+# reqwest = { version="0.10", features=["json"] }
+log = { version = "0.4", features = ["kv_unstable", "std"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "*"
+serde_urlencoded = "0.7"
+secstr = { version = "0.4", features = ["serde", "libsodium-sys" ] }
+libsodium-sys = { version = "0" }
+thiserror = "*"
+async-trait = "0.1"
+oauth = { version="0.4", package = "oauth1-request" }
+oauth-credentials = { version = "0.2", features = ["serde"] }
+tower-service = "0.3"
+chrono = "0.4"
+chrono-tz = "0.5"
+quick-xml = { version = "^0.20", features = ["serialize"] }
+strum = { version = "0.20", features = ["derive"] }
+# etradectl deps
+secret-service = "1"
+structopt = "0.3"
+bat = "*"
+pretty_env_logger = "*"
+prettytable-rs = "0.8"
+
+[[bin]]
+name = "etradectl"
+path = "src/bin/etradectl/main.rs"

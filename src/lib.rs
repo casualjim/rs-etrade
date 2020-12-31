@@ -9,12 +9,13 @@ use std::{collections::HashMap, sync::Arc};
 use anyhow::Result;
 use secstr::SecUtf8;
 use std::sync::Mutex;
+use strum::EnumString;
 
-mod accounts;
+pub mod accounts;
+pub mod orders;
 mod session;
 
 pub use accounts::Api as Accounts;
-pub use accounts::PortfolioRequest;
 pub use session::Session;
 pub use session::OOB;
 
@@ -27,6 +28,48 @@ const LIVE_URL: &str = "https://api.etrade.com";
 pub enum Mode {
     Sandbox,
     Live,
+}
+
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Product {
+    pub symbol: String,
+    pub security_type: Option<SecurityType>,
+    pub security_sub_type: Option<String>,
+    pub call_put: String,
+    pub expiry_year: i32,
+    pub expiry_month: i32,
+    pub expiry_day: i32,
+    pub strike_price: f64,
+    pub expiry_type: String,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
+pub enum SecurityType {
+    #[serde(rename = "EQ")]
+    Eq,
+    #[serde(rename = "OPTN")]
+    Optn,
+    #[serde(rename = "MF")]
+    Mf,
+    #[serde(rename = "MMF")]
+    Mmf,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
+pub enum MarketSession {
+    #[serde(rename = "REGULAR")]
+    Regular,
+    #[serde(rename = "EXTENDED")]
+    Extended,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
+pub enum OptionType {
+    #[serde(rename = "CALL")]
+    Call,
+    #[serde(rename = "PUT")]
+    Put,
 }
 
 #[derive(Debug, Clone)]

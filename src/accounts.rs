@@ -4,20 +4,24 @@ use super::{session, Session, Store};
 use anyhow::Result;
 use http::Method;
 use session::CallbackProvider;
+use strum::EnumString;
+use crate::Product;
+use crate::MarketSession;
+use std::sync::Arc;
 
 fn no_body() -> Option<()> {
     None
 }
 
 pub struct Api<T: Store> {
-    session: Session<T>,
+    session: Arc<Session<T>>,
 }
 
 impl<T> Api<T>
 where
     T: Store,
 {
-    pub fn new(session: Session<T>) -> Self {
+    pub fn new(session: Arc<Session<T>>) -> Self {
         Self { session }
     }
 
@@ -89,22 +93,15 @@ pub struct PortfolioRequest {
     pub view: Option<PortfolioView>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
+#[strum(serialize_all = "lowercase")]
 pub enum SortOrder {
     #[serde(rename = "ASC")]
     Asc,
     #[serde(rename = "DESC")]
     Desc,
 }
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-pub enum MarketSession {
-    #[serde(rename = "REGULAR")]
-    Regular,
-    #[serde(rename = "EXTENDED")]
-    Extended,
-}
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
 pub enum PortfolioView {
     #[serde(rename = "PERFORMANCE")]
     Performance,
@@ -118,7 +115,7 @@ pub enum PortfolioView {
     Complete,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString)]
 pub enum PortfolioColumn {
     #[serde(rename = "SYMBOL")]
     Symbol,
@@ -518,19 +515,7 @@ pub struct PortfolioPosition {
     pub quote_details: String,
     pub position_lot: Vec<PositionLot>,
 }
-#[derive(Debug, Deserialize, Serialize, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct Product {
-    pub symbol: String,
-    pub security_type: String,
-    pub security_sub_type: String,
-    pub call_put: String,
-    pub expiry_year: i32,
-    pub expiry_month: i32,
-    pub expiry_day: i32,
-    pub strike_price: f64,
-    pub expiry_type: String,
-}
+
 #[derive(Debug, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase", default)]
 pub struct PerformanceView {
