@@ -21,8 +21,20 @@ pub mod orders;
 mod session;
 pub mod transactions;
 
-#[cfg(feature = "secretservice")]
-pub mod secret_service;
+#[cfg(all(feature = "keychain", target_os = "linux"))]
+mod linux;
+#[cfg(all(feature = "keychain", target_os = "linux"))]
+pub use linux::SecretServiceStore as KeychainStore;
+
+#[cfg(all(feature = "keychain", target_os = "macos"))]
+mod macos;
+#[cfg(all(feature = "keychain", target_os = "macos"))]
+pub use macos::KeychainStore;
+
+#[cfg(all(feature = "keychain", target_os = "windows"))]
+mod windows;
+#[cfg(all(feature = "keychain", target_os = "windows"))]
+pub use windows::KeychainStore;
 
 pub use accounts::Api as Accounts;
 pub use session::Session;

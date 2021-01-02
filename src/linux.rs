@@ -1,9 +1,9 @@
 use secstr::SecUtf8;
 
+use crate::Store;
 use anyhow::{anyhow, Result};
 use secret_service::{EncryptionType, SecretService};
 use tokio::sync::oneshot;
-use crate::Store;
 //
 // type Responder<T> = oneshot::Sender<Result<T>>;
 //
@@ -32,21 +32,18 @@ use crate::Store;
 //   Secret(Option<SecUtf8>),
 // }
 
-#[cfg(feature = "secretservice")]
 #[derive(Debug)]
 pub struct SecretServiceStore {
   svc: SecretService,
 }
 
-#[cfg(feature = "secretservice")]
 impl SecretServiceStore {
-  pub fn new() -> Result<Self> {
+  pub async fn new() -> Result<Self> {
     let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
     Ok(Self { svc })
   }
 }
 
-#[cfg(feature = "secretservice")]
 impl Store for SecretServiceStore {
   fn put(
     &self,
@@ -119,7 +116,7 @@ mod tests {
 
   #[tokio::test]
   async fn test_secret_service_store() {
-    verify_token_store(SecretServiceStore::new().unwrap())
+    verify_token_store(SecretServiceStore::new().await.unwrap())
   }
 
   fn verify_token_store(token_store: impl crate::Store) {

@@ -4,6 +4,7 @@ use accounts::BalanceRequest;
 use anyhow::{anyhow, Result};
 use bat::{Input, PrettyPrinter};
 use etrade::orders::{ListOrdersRequest, OrderStatus, TransactionType};
+use etrade::KeychainStore;
 use etrade::{self, SortOrder, Store};
 use etrade::{accounts, MarketSession, SecurityType};
 use serde::Serialize;
@@ -11,7 +12,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::io::{self, *};
-use etrade::secret_service::SecretServiceStore;
 // use etrade::{Account, AuthenticatedClient};
 
 #[tokio::main]
@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
   pretty_env_logger::init();
 
   let mode: etrade::Mode = etrade::Mode::Live;
-  let store = SecretServiceStore::new()?;
+  let store = KeychainStore::new().await?;
   let session = Arc::new(etrade::Session::new(mode, store));
   let accounts = etrade::accounts::Api::new(session.clone());
   let orders = etrade::orders::Api::new(session.clone());
@@ -41,7 +41,9 @@ async fn main() -> Result<()> {
       let mut consumer_secret = String::new();
       io::BufReader::new(io::stdin()).read_line(&mut consumer_secret).await?;
 
-      session.initialize(consumer_token.trim().to_string(), consumer_secret.trim().to_string()).await?;
+      session
+        .initialize(consumer_token.trim().to_string(), consumer_secret.trim().to_string())
+        .await?;
       println!("updated the {} consumer token and key", mode);
     }
     Cmd::Accounts { cmd: AccountCmd::List } => {
