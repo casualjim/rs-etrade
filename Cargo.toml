@@ -67,3 +67,7 @@ optional = true
 [[bin]]
 name = "etradectl"
 path = "src/bin/etradectl/main.rs"
+
+[[bin]]
+name = "playground"
+path = "src/bin/playground/main.rs"

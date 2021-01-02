@@ -5,14 +5,12 @@ use anyhow::{anyhow, Result};
 use bat::{Input, PrettyPrinter};
 use etrade::orders::{ListOrdersRequest, OrderStatus, TransactionType};
 use etrade::KeychainStore;
-use etrade::{self, SortOrder, Store};
+use etrade::{self, SortOrder};
 use etrade::{accounts, MarketSession, SecurityType};
 use serde::Serialize;
-use std::str::FromStr;
 use std::sync::Arc;
 use structopt::StructOpt;
 use tokio::io::{self, *};
-// use etrade::{Account, AuthenticatedClient};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -24,7 +22,7 @@ async fn main() -> Result<()> {
   let session = Arc::new(etrade::Session::new(mode, store));
   let accounts = etrade::accounts::Api::new(session.clone());
   let orders = etrade::orders::Api::new(session.clone());
-  let transactions = etrade::transactions::Api::new(session.clone());
+  let _transactions = etrade::transactions::Api::new(session.clone());
   let oob = etrade::OOB;
 
   match Cmd::from_args() {
@@ -257,12 +255,4 @@ enum AccountCmd {
     /// The view query.
     view: accounts::PortfolioView,
   },
-}
-
-#[cfg(test)]
-mod tests {
-  pub fn init() {
-    std::env::set_var("RUST_LOG", "debug");
-    let _ = pretty_env_logger::try_init();
-  }
 }

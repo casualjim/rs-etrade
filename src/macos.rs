@@ -25,46 +25,12 @@ impl Store for KeychainStore {
 
   fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
     let (_, item) = find_generic_password(None, namespace.as_ref(), key.as_ref())?;
-
     item.delete();
-
     Ok(())
-
-    // let svc = &self.svc;
-    // let coll = svc
-    //   .get_default_collection()
-    //   .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
-    // let results = coll
-    //   .search_items(vec![(namespace.as_ref(), key.as_ref())])
-    //   .map_err(|_e| anyhow!("failed to find secret ({}:{}) "))?;
-
-    // match results.get(0) {
-    //   Some(item) => item.delete().map_err(|e| anyhow!("failed to delete secret {}", e)),
-    //   _ => Ok(()),
-    // }
   }
 
   fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
     let (secret, _) = find_generic_password(None, namespace.as_ref(), key.as_ref())?;
     Ok(Some(String::from_utf8(secret)?.into()))
-    // let svc = &self.svc;
-    // let coll = svc
-    //   .get_default_collection()
-    //   .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
-    // let results = coll
-    //   .search_items(vec![(namespace.as_ref(), key.as_ref())])
-    //   .map_err(|e| anyhow!("failed to find secret ({}:{}): {}", namespace.as_ref(), key.as_ref(), e))?;
-
-    // match results.get(0) {
-    //   Some(item) => {
-    //     let secret = item.get_secret().map_err(|e| anyhow!("failed to get secret: {}", e))?;
-
-    //     if secret.is_empty() {
-    //       return Ok(None);
-    //     }
-    //     Ok(Some(String::from_utf8(secret)?.into()))
-    //   }
-    //   None => Ok(None),
-    // }
   }
 }

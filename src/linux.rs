@@ -3,44 +3,13 @@ use secstr::SecUtf8;
 use crate::Store;
 use anyhow::{anyhow, Result};
 use secret_service::{EncryptionType, SecretService};
-use tokio::sync::oneshot;
-//
-// type Responder<T> = oneshot::Sender<Result<T>>;
-//
-// enum StoreCmd {
-//   Put {
-//     namespace: String,
-//     key: String,
-//     value: SecUtf8,
-//     reply: Responder<()>,
-//   },
-//   Del {
-//     namespace: String,
-//     key: String,
-//     reply: Responder<()>,
-//   },
-//   Get {
-//     namespace: String,
-//     key: String,
-//     reply: Responder<Option<SecUtf8>>,
-//   },
-// }
-//
-// enum StoreResponse {
-//   Success,
-//   Fail(String),
-//   Secret(Option<SecUtf8>),
-// }
 
 #[derive(Debug)]
-pub struct SecretServiceStore {
-  svc: SecretService,
-}
+pub struct SecretServiceStore;
 
 impl SecretServiceStore {
   pub async fn new() -> Result<Self> {
-    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
-    Ok(Self { svc })
+    Ok(Self)
   }
 }
 
@@ -54,7 +23,7 @@ impl Store for SecretServiceStore {
     let ns = namespace.into();
     let k = key.into();
     let label = format!("secret for etradectl {}@{}", &k, &ns);
-    let svc = &self.svc;
+    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
     let coll = svc
       .get_default_collection()
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
@@ -71,7 +40,7 @@ impl Store for SecretServiceStore {
   }
 
   fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
-    let svc = &self.svc;
+    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
     let coll = svc
       .get_default_collection()
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
@@ -86,7 +55,7 @@ impl Store for SecretServiceStore {
   }
 
   fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
-    let svc = &self.svc;
+    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
     let coll = svc
       .get_default_collection()
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
