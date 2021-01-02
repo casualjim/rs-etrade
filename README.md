@@ -5,7 +5,9 @@ Wraps the etrade API and implements the required oauth1 flow.
 ## State storage
 
 The default feature for the crate includes a thread safe in-memory store for the oauth tokens.
-There is an optional feature `secretservice` which will the keychain on linux to store the token information.
+There is an optional feature `keychain` which will the OS native secret store to track the token information.
+
+You only need to initialize the consumer key/secret once, the temporary credentials will be managed by the session.
 
 ## Usage
 
