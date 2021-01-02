@@ -1,4 +1,6 @@
-use anyhow::Result;
+use crate::Store;
+use anyhow::{Result,anyhow};
+use secstr::SecUtf8;
 use security_framework::os::macos::keychain::SecKeychain;
 use security_framework::os::macos::passwords::find_generic_password;
 
@@ -31,6 +33,6 @@ impl Store for KeychainStore {
 
   fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
     let (secret, _) = find_generic_password(None, namespace.as_ref(), key.as_ref())?;
-    Ok(Some(String::from_utf8(secret)?.into()))
+    Ok(Some(String::from_utf8(secret.to_vec())?.into()))
   }
 }
