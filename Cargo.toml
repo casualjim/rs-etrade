@@ -7,6 +7,9 @@ readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+secretservice = ["secret-service"]
+
 [dependencies]
 http = "0.2"
 http-body = "0.3"
@@ -34,7 +37,7 @@ quick-xml = { version = "^0.20", features = ["serialize"] }
 strum = { version = "0.20", features = ["derive"] }
 
 # etradectl deps
-secret-service = "1"
+secret-service = { version = "1", optional = true }
 structopt = "0.3"
 bat = "*"
 pretty_env_logger = "*"

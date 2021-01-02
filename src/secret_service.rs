@@ -1,42 +1,44 @@
 use secstr::SecUtf8;
 
 use anyhow::{anyhow, Result};
-use etrade::Store;
 use secret_service::{EncryptionType, SecretService};
 use tokio::sync::oneshot;
+use crate::Store;
+//
+// type Responder<T> = oneshot::Sender<Result<T>>;
+//
+// enum StoreCmd {
+//   Put {
+//     namespace: String,
+//     key: String,
+//     value: SecUtf8,
+//     reply: Responder<()>,
+//   },
+//   Del {
+//     namespace: String,
+//     key: String,
+//     reply: Responder<()>,
+//   },
+//   Get {
+//     namespace: String,
+//     key: String,
+//     reply: Responder<Option<SecUtf8>>,
+//   },
+// }
+//
+// enum StoreResponse {
+//   Success,
+//   Fail(String),
+//   Secret(Option<SecUtf8>),
+// }
 
-type Responder<T> = oneshot::Sender<Result<T>>;
-
-enum StoreCmd {
-  Put {
-    namespace: String,
-    key: String,
-    value: SecUtf8,
-    reply: Responder<()>,
-  },
-  Del {
-    namespace: String,
-    key: String,
-    reply: Responder<()>,
-  },
-  Get {
-    namespace: String,
-    key: String,
-    reply: Responder<Option<SecUtf8>>,
-  },
-}
-
-enum StoreResponse {
-  Success,
-  Fail(String),
-  Secret(Option<SecUtf8>),
-}
-
+#[cfg(feature = "secretservice")]
 #[derive(Debug)]
 pub struct SecretServiceStore {
   svc: SecretService,
 }
 
+#[cfg(feature = "secretservice")]
 impl SecretServiceStore {
   pub fn new() -> Result<Self> {
     let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
@@ -44,6 +46,7 @@ impl SecretServiceStore {
   }
 }
 
+#[cfg(feature = "secretservice")]
 impl Store for SecretServiceStore {
   fn put(
     &self,
@@ -110,7 +113,7 @@ impl Store for SecretServiceStore {
 
 #[cfg(test)]
 mod tests {
-  use crate::{credentials::SecretServiceStore, etrade};
+  use super::SecretServiceStore;
   use anyhow::Result;
   use secstr::SecUtf8;
 
@@ -119,7 +122,7 @@ mod tests {
     verify_token_store(SecretServiceStore::new().unwrap())
   }
 
-  fn verify_token_store(token_store: impl etrade::Store) {
+  fn verify_token_store(token_store: impl crate::Store) {
     let expected: Result<SecUtf8> = Ok("hello".into());
     token_store.put("my_svc", "api_key", "hello").unwrap();
     assert_eq!(token_store.get("my_svc", "api_key").ok(), Some(expected.ok()));

@@ -47,13 +47,14 @@ type HttpClient = Client<HttpsConnector<HttpConnector<GaiResolver>>, hyper::Body
 pub trait CallbackProvider: Clone {
   async fn verifier_code(&self, url: &str) -> Result<String>;
 }
+
 #[derive(Debug, Clone, Copy)]
 pub struct OOB;
 
 #[async_trait]
 impl CallbackProvider for OOB {
   async fn verifier_code(&self, url: &str) -> Result<String> {
-    let msg = format!("please visit and accept the license: {}\ninput pin: \n", url,);
+    let msg = format!("please visit and accept the license: {}\ninput pin: \n", url, );
     io::stderr().write_all(msg.as_bytes()).await?;
 
     let stdin = io::stdin();
@@ -101,8 +102,8 @@ pub struct Session<T: Store> {
 }
 
 impl<T> Session<T>
-where
-  T: Store,
+  where
+      T: Store,
 {
   pub fn new(mode: Mode, store: T) -> Self {
     let https = HttpsConnector::new();
@@ -113,11 +114,6 @@ where
       client: Client::builder().build(https),
       urls: UrlConfig::default(),
     }
-  }
-
-  #[cfg(test)]
-  fn new_with_url_config(mode: Mode, store: T, _config: UrlConfig<'static>) -> Self {
-    Self::new(mode, store)
   }
 
   fn base_url(&self) -> &str {
@@ -134,15 +130,21 @@ where
     }
   }
 
+  pub async fn initialize(&self, key: String, secret: String) -> Result<()> {
+    self.store.put(self.namespace(), API_KEY, key)?;
+    self.store.put(self.namespace(), SECRET_KEY, secret)?;
+    Ok(())
+  }
+
   async fn consumer(&self) -> Result<Credentials> {
     let consumer_key = self
-      .store
-      .get(self.namespace(), API_KEY)
-      .and_then(|r| r.ok_or(anyhow!("secret {}@{} not found.", API_KEY, self.namespace())))?;
+        .store
+        .get(self.namespace(), API_KEY)
+        .and_then(|r| r.ok_or(anyhow!("secret {}@{} not found.", API_KEY, self.namespace())))?;
     let consumer_secret = self
-      .store
-      .get(self.namespace(), SECRET_KEY)
-      .and_then(|r| r.ok_or(anyhow!("secret {}@{} not found.", SECRET_KEY, self.namespace())))?;
+        .store
+        .get(self.namespace(), SECRET_KEY)
+        .and_then(|r| r.ok_or(anyhow!("secret {}@{} not found.", SECRET_KEY, self.namespace())))?;
 
     Ok(Credentials::new(consumer_key, consumer_secret))
   }
@@ -181,8 +183,8 @@ where
         debug!("getting a new request token");
         let uri = http::Uri::from_static(self.urls.request_token_url);
         let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HmacSha1)
-          .callback("oob")
-          .get(&uri, &());
+            .callback("oob")
+            .get(&uri, &());
 
         let body = send_request(uri, authorization, &self.client).await;
         let creds: oauth_credentials::Credentials<Box<str>> = serde_urlencoded::from_bytes(&body)?;
@@ -190,16 +192,16 @@ where
         debug!("created request token: {:?}", &creds);
         let request_token: Credentials = creds.into();
         self
-          .store
-          .put(self.namespace(), REQUEST_TOKEN_KEY, request_token.key.unsecure())?;
+            .store
+            .put(self.namespace(), REQUEST_TOKEN_KEY, request_token.key.unsecure())?;
         self
-          .store
-          .put(self.namespace(), REQUEST_TOKEN_SECRET, request_token.secret.unsecure())?;
+            .store
+            .put(self.namespace(), REQUEST_TOKEN_SECRET, request_token.secret.unsecure())?;
 
         let today = Utc::today()
-          .with_timezone(&chrono_tz::US::Eastern)
-          .format("%Y-%m-%d")
-          .to_string();
+            .with_timezone(&chrono_tz::US::Eastern)
+            .format("%Y-%m-%d")
+            .to_string();
         self.store.put(self.namespace(), REQUEST_TOKEN_CREATED, &today)?;
         Ok(request_token)
       }
@@ -260,20 +262,20 @@ where
     debug!("getting an access token");
     let uri = http::Uri::from_static(self.urls.access_token_url);
     let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HmacSha1)
-      .token(Some(request_token.clone().into()))
-      .verifier(pin.as_ref())
-      .get(&uri, &());
+        .token(Some(request_token.clone().into()))
+        .verifier(pin.as_ref())
+        .get(&uri, &());
     let body = send_request(uri, authorization, &self.client).await;
     let creds: oauth_credentials::Credentials<Box<str>> = serde_urlencoded::from_bytes(&body)?;
 
     debug!("created access token: {:?}", &creds);
     let access_token: Credentials = creds.into();
     self
-      .store
-      .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())?;
+        .store
+        .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())?;
     self
-      .store
-      .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())?;
+        .store
+        .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())?;
     Ok(access_token)
   }
 
@@ -281,19 +283,19 @@ where
     debug!("renewing an access token");
     let uri = http::Uri::from_static(self.urls.renew_access_token_url);
     let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HmacSha1)
-      .token(Some(request_token.clone().into()))
-      .get(&uri, &());
+        .token(Some(request_token.clone().into()))
+        .get(&uri, &());
 
     let body = send_request(uri, authorization, &self.client).await;
     let creds: oauth_credentials::Credentials<Box<str>> = serde_urlencoded::from_bytes(&body)?;
     debug!("renewed access token: {:?}", &creds);
     let access_token: Credentials = creds.into();
     self
-      .store
-      .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())?;
+        .store
+        .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())?;
     self
-      .store
-      .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())?;
+        .store
+        .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())?;
     Ok(access_token)
   }
 
@@ -304,10 +306,10 @@ where
     input: Option<B>,
     callback: C,
   ) -> Result<Response<hyper::Body>>
-  where
-    P: AsRef<str> + Send + Sync,
-    B: Serialize + Clone + Send + Sync,
-    C: CallbackProvider + Clone,
+    where
+        P: AsRef<str> + Send + Sync,
+        B: Serialize + Clone + Send + Sync,
+        C: CallbackProvider + Clone,
   {
     let consumer = self.consumer().await?;
     let access_token = self.access_token(callback.clone()).await?;
@@ -331,8 +333,8 @@ where
     };
 
     let authorization = oauth::Builder::new(consumer.into(), oauth::HmacSha1)
-      .token(Some(access_token.into()))
-      .build(method.as_str(), &bare_uri, &params);
+        .token(Some(access_token.into()))
+        .build(method.as_str(), &bare_uri, &params);
 
     let body: hyper::Body = match input.clone() {
       Some(v) => match &method {
@@ -343,12 +345,12 @@ where
     };
 
     let req = Request::builder()
-      .method(method.clone())
-      .header(ACCEPT, "application/json")
-      .header(AUTHORIZATION, authorization)
-      .uri(full_uri)
-      .body(body)
-      .unwrap();
+        .method(method.clone())
+        .header(ACCEPT, "application/json")
+        .header(AUTHORIZATION, authorization)
+        .uri(full_uri)
+        .body(body)
+        .unwrap();
 
     // let req = builder
     debug!("{:?}", req);
@@ -358,15 +360,15 @@ where
   }
 
   pub async fn send<P, B, R, C>(&self, method: http::Method, path: P, input: Option<B>, callback: C) -> Result<R>
-  where
-    P: AsRef<str> + Send + Sync,
-    B: Serialize + Clone + Send + Sync,
-    R: DeserializeOwned + Send + Sync,
-    C: CallbackProvider + Clone,
+    where
+        P: AsRef<str> + Send + Sync,
+        B: Serialize + Clone + Send + Sync,
+        R: DeserializeOwned + Send + Sync,
+        C: CallbackProvider + Clone,
   {
     let mut resp = self
-      .do_send(method.clone(), path.as_ref(), input.clone(), callback.clone())
-      .await?;
+        .do_send(method.clone(), path.as_ref(), input.clone(), callback.clone())
+        .await?;
 
     if resp.status().as_u16() == 401 {
       debug!("auth error, retrying with invalidated session");
@@ -378,11 +380,11 @@ where
     let status_code = resp.status().as_u16();
     debug!("reading content type code");
     let content_type = resp
-      .headers()
-      .get(CONTENT_TYPE)
-      .map(|ct| ct.to_str().unwrap_or("application/json"))
-      .unwrap_or("application/json")
-      .to_string();
+        .headers()
+        .get(CONTENT_TYPE)
+        .map(|ct| ct.to_str().unwrap_or("application/json"))
+        .unwrap_or("application/json")
+        .to_string();
     debug!("aggregating body");
 
     let body = hyper::body::aggregate(resp).await?;
@@ -407,15 +409,15 @@ pub struct ErrorData {
 }
 
 async fn send_request<S, B>(uri: http::Uri, authorization: String, mut http: S) -> Vec<u8>
-where
-  S: Service<http::Request<B>, Response = http::Response<B>>,
-  S::Error: Debug,
-  B: http_body::Body<Error = S::Error> + Default + From<Vec<u8>> + Debug,
+  where
+      S: Service<http::Request<B>, Response=http::Response<B>>,
+      S::Error: Debug,
+      B: http_body::Body<Error=S::Error> + Default + From<Vec<u8>> + Debug,
 {
   let req = http::Request::get(uri)
-    .header(AUTHORIZATION, authorization)
-    .body(B::default())
-    .unwrap();
+      .header(AUTHORIZATION, authorization)
+      .body(B::default())
+      .unwrap();
 
   debug!("{:?}", req);
   let resp = http.call(req).await.unwrap();
@@ -455,18 +457,19 @@ mod tests {
     info!(
       "query string: '{:?}'",
       data
-        .map(|v| hyper::body::Body::from(serde_json::to_string(&v).unwrap()))
-        .unwrap_or(hyper::Body::empty())
+          .map(|v| hyper::body::Body::from(serde_json::to_string(&v).unwrap()))
+          .unwrap_or(hyper::Body::empty())
     );
     info!(
       "query string: '{:?}'",
       data2
-        .map(|v| hyper::body::Body::from(serde_json::to_string(&v).unwrap()))
-        .unwrap_or(hyper::Body::empty())
+          .map(|v| hyper::body::Body::from(serde_json::to_string(&v).unwrap()))
+          .unwrap_or(hyper::Body::empty())
     );
     // let n = serde_json::to_string(&None as &Option<&[u8]>).unwrap();
     // info!("query string: '{}'", n);
   }
+
   #[tokio::test]
   async fn it_works() {
     crate::tests::init();
@@ -499,11 +502,11 @@ mod tests {
       });
       let make_service = make_service_fn(|_| async move { Ok::<_, Infallible>(service) });
       server
-        .tcp_nodelay(true)
-        .tcp_keepalive(None)
-        .serve(make_service)
-        .await
-        .map_err(|e| anyhow!("{}", e))
+          .tcp_nodelay(true)
+          .tcp_keepalive(None)
+          .serve(make_service)
+          .await
+          .map_err(|e| anyhow!("{}", e))
     }
   }
 }

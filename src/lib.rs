@@ -21,6 +21,9 @@ pub mod orders;
 mod session;
 pub mod transactions;
 
+#[cfg(feature = "secretservice")]
+pub mod secret_service;
+
 pub use accounts::Api as Accounts;
 pub use session::Session;
 pub use session::OOB;
@@ -46,6 +49,8 @@ fn qs_params<'a, T: serde::Serialize + serde::Deserialize<'a>>(
 fn empty_body() -> Option<()> {
   None
 }
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, EnumString, strum::Display)]
 pub enum Mode {
   Sandbox,
   Live,

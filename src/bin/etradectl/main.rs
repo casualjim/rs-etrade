@@ -1,17 +1,17 @@
-mod credentials;
 use std::env;
 
 use accounts::BalanceRequest;
 use anyhow::{anyhow, Result};
 use bat::{Input, PrettyPrinter};
-use credentials::SecretServiceStore;
 use etrade::orders::{ListOrdersRequest, OrderStatus, TransactionType};
-use etrade::{self, SortOrder};
+use etrade::{self, SortOrder, Store};
 use etrade::{accounts, MarketSession, SecurityType};
 use serde::Serialize;
 use std::str::FromStr;
 use std::sync::Arc;
 use structopt::StructOpt;
+use tokio::io::{self, *};
+use etrade::secret_service::SecretServiceStore;
 // use etrade::{Account, AuthenticatedClient};
 
 #[tokio::main]
@@ -19,14 +19,31 @@ async fn main() -> Result<()> {
   std::env::set_var("RUST_LOG", "info,etrade=debug,etradectl=debug");
   pretty_env_logger::init();
 
+  let mode: etrade::Mode = etrade::Mode::Live;
   let store = SecretServiceStore::new()?;
-  let session = Arc::new(etrade::Session::new(etrade::Mode::Sandbox, store));
+  let session = Arc::new(etrade::Session::new(mode, store));
   let accounts = etrade::accounts::Api::new(session.clone());
   let orders = etrade::orders::Api::new(session.clone());
   let transactions = etrade::transactions::Api::new(session.clone());
   let oob = etrade::OOB;
 
   match Cmd::from_args() {
+    Cmd::Init => {
+      let msg1 = "Consumer key:\n";
+      io::stderr().write_all(msg1.as_bytes()).await?;
+
+      let mut consumer_token = String::new();
+      io::BufReader::new(io::stdin()).read_line(&mut consumer_token).await?;
+
+      let msg2 = "Consumer secret:\n";
+      io::stderr().write_all(msg2.as_bytes()).await?;
+
+      let mut consumer_secret = String::new();
+      io::BufReader::new(io::stdin()).read_line(&mut consumer_secret).await?;
+
+      session.initialize(consumer_token.trim().to_string(), consumer_secret.trim().to_string()).await?;
+      println!("updated the {} consumer token and key", mode);
+    }
     Cmd::Accounts { cmd: AccountCmd::List } => {
       let account_list = accounts.list(oob).await?;
       pretty_print(&account_list)?;
@@ -135,6 +152,7 @@ fn pretty_print<T: Serialize>(data: &T) -> Result<()> {
 ///
 /// This command mostly serves to manage the oauth1 tokens via the keychain.
 enum Cmd {
+  Init,
   /// List accounts, balances, transactions and portfolios
   Accounts {
     #[structopt(subcommand)]
