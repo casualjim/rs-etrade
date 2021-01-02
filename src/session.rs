@@ -2,7 +2,7 @@ use crate::{Credentials, Mode, Store};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 
-use bytes::buf::BufExt;
+use bytes::Buf;
 use chrono::{NaiveDate, Utc};
 use http::{
   header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
@@ -20,9 +20,8 @@ use hyper_tls::HttpsConnector;
 
 use secstr::SecUtf8;
 
+use hyper::service::Service;
 use std::{collections::BTreeSet, fmt::Debug};
-
-use tower_service::Service;
 
 use super::{LIVE_URL, SANDBOX_URL};
 
