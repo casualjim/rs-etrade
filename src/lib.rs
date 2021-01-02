@@ -195,9 +195,6 @@ where
 }
 
 pub trait Store {
-  // type KeyType: Into<String> + Send;
-  // type SecretType: Into<SecUtf8> + Send;
-
   fn put(
     &self,
     namespace: impl Into<String> + Send,

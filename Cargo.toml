@@ -37,6 +37,8 @@ chrono-tz = "0.5"
 quick-xml = { version = "^0.20", features = ["serialize"] }
 strum = { version = "0.20", features = ["derive"] }
 
+[dev-dependencies]
+pretty_env_logger = "*"
 
 [target."cfg(target_os = \"linux\")".dependencies.secret-service]
 version = "1"
@@ -59,3 +61,5 @@ optional = true
 version = "0.3"
 features = ["wincred", "minwindef"]
 optional = true
+
+
