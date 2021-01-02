@@ -18,8 +18,7 @@ async fn main() -> Result<()> {
   pretty_env_logger::init();
 
   let mode: etrade::Mode = etrade::Mode::Live;
-  let store = KeychainStore::new().await?;
-  let session = Arc::new(etrade::Session::new(mode, store));
+  let session = Arc::new(etrade::Session::new(mode, KeychainStore));
   let accounts = etrade::accounts::Api::new(session.clone());
   let orders = etrade::orders::Api::new(session.clone());
   let _transactions = etrade::transactions::Api::new(session.clone());

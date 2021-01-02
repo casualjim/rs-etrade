@@ -5,15 +5,15 @@ use anyhow::{anyhow, Result};
 use secret_service::{EncryptionType, SecretService};
 
 #[derive(Debug)]
-pub struct SecretServiceStore;
+pub struct KeychainStore;
 
-impl SecretServiceStore {
+impl KeychainStore {
   pub async fn new() -> Result<Self> {
     Ok(Self)
   }
 }
 
-impl Store for SecretServiceStore {
+impl Store for KeychainStore {
   fn put(
     &self,
     namespace: impl Into<String> + Send,
@@ -79,13 +79,13 @@ impl Store for SecretServiceStore {
 
 #[cfg(test)]
 mod tests {
-  use super::SecretServiceStore;
+  use super::KeychainStore;
   use anyhow::Result;
   use secstr::SecUtf8;
 
   #[tokio::test]
   async fn test_secret_service_store() {
-    verify_token_store(SecretServiceStore::new().await.unwrap())
+    verify_token_store(KeychainStore::new().await.unwrap())
   }
 
   fn verify_token_store(token_store: impl crate::Store) {

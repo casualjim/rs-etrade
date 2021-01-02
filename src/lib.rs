@@ -24,7 +24,7 @@ pub mod transactions;
 #[cfg(all(feature = "keychain", target_os = "linux"))]
 mod linux;
 #[cfg(all(feature = "keychain", target_os = "linux"))]
-pub use linux::SecretServiceStore as KeychainStore;
+pub use linux::KeychainStore;
 
 #[cfg(all(feature = "keychain", target_os = "macos"))]
 mod macos;
