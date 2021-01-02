@@ -24,22 +24,22 @@ tokio = {version="0.2", features=["full"]}
 log = { version = "0.4", features = ["kv_unstable", "std"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-serde_yaml = "*"
+serde_yaml = "0.8"
 serde_urlencoded = "0.7"
 secstr = { version = "0.4", features = ["serde", "libsodium-sys" ] }
 libsodium-sys = { version = "0" }
-thiserror = "*"
+thiserror = "1"
 async-trait = "0.1"
 oauth = { version="0.4", package = "oauth1-request" }
 oauth-credentials = { version = "0.2", features = ["serde"] }
 tower-service = "0.3"
 chrono = "0.4"
 chrono-tz = "0.5"
-quick-xml = { version = "^0.20", features = ["serialize"] }
+quick-xml = { version = "0.20", features = ["serialize"] }
 strum = { version = "0.20", features = ["derive"] }
 
 [dev-dependencies]
-pretty_env_logger = "*"
+pretty_env_logger = "0.4"
 
 [target."cfg(target_os = \"linux\")".dependencies.secret-service]
 version = "1"
