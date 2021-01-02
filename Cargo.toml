@@ -6,6 +6,9 @@ edition = "2018"
 readme = "README.md"
 license = "MIT"
 description = "Wraps the etrade API and implements the oauth flows"
+repository = "https://github.com/casualjim/rs-etrade"
+categories = ["api-bindings"]
+keywords = ["quote", "finance", "etrade", "stocks","stock-options"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
