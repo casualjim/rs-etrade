@@ -28,10 +28,10 @@ where
     Ok(resp.response.accounts.account)
   }
 
-  pub async fn balance<'a>(
+  pub async fn balance(
     &self,
     account_id_key: &str,
-    balance_request: BalanceRequest<'a>,
+    balance_request: BalanceRequest<'_>,
     callbacks: impl CallbackProvider,
   ) -> Result<BalanceResponse> {
     let balance: serde_json::Value = self
