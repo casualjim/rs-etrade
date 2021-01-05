@@ -218,6 +218,12 @@ impl Memstore {
   }
 }
 
+impl Default for Memstore {
+  fn default() -> Self {
+    Memstore::new()
+  }
+}
+
 impl Store for Memstore {
   fn put(
     &self,
@@ -227,7 +233,7 @@ impl Store for Memstore {
   ) -> Result<()> {
     let mut data = self.data.lock().unwrap();
 
-    let svc_state = data.entry(namespace.into()).or_insert_with(|| HashMap::new());
+    let svc_state = data.entry(namespace.into()).or_insert_with(HashMap::new);
     svc_state.insert(key.into(), value.into());
     Ok(())
   }
@@ -246,7 +252,7 @@ impl Store for Memstore {
     Ok(
       data
         .get(namespace.as_ref())
-        .and_then(|r| r.get(key.as_ref()).map(|v| v.clone())),
+        .and_then(|r| r.get(key.as_ref()).cloned()),
     )
   }
 }

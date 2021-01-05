@@ -116,16 +116,16 @@ where
   }
 
   fn base_url(&self) -> &str {
-    match &self.mode {
-      &Mode::Sandbox => SANDBOX_URL,
-      &Mode::Live => LIVE_URL,
+    match self.mode {
+      Mode::Sandbox => SANDBOX_URL,
+      Mode::Live => LIVE_URL,
     }
   }
 
   fn namespace(&self) -> &str {
-    match &self.mode {
-      &Mode::Sandbox => SANDBOX_NAMESPACE,
-      &Mode::Live => LIVE_NAMESPACE,
+    match self.mode {
+      Mode::Sandbox => SANDBOX_NAMESPACE,
+      Mode::Live => LIVE_NAMESPACE,
     }
   }
 
@@ -139,11 +139,11 @@ where
     let consumer_key = self
       .store
       .get(self.namespace(), API_KEY)
-      .and_then(|r| r.ok_or(anyhow!("secret {}@{} not found.", API_KEY, self.namespace())))?;
+      .and_then(|r| r.ok_or_else(|| anyhow!("secret {}@{} not found.", API_KEY, self.namespace())))?;
     let consumer_secret = self
       .store
       .get(self.namespace(), SECRET_KEY)
-      .and_then(|r| r.ok_or(anyhow!("secret {}@{} not found.", SECRET_KEY, self.namespace())))?;
+      .and_then(|r| r.ok_or_else(|| anyhow!("secret {}@{} not found.", SECRET_KEY, self.namespace())))?;
 
     Ok(Credentials::new(consumer_key, consumer_secret))
   }
@@ -315,8 +315,8 @@ where
 
     let uri = format!("{}{}", self.base_url(), path.as_ref());
 
-    let (bare_uri, full_uri, params): (&str, String, Option<BTreeSet<(String, String)>>) = match &method {
-      &Method::GET => {
+    let (bare_uri, full_uri, params): (&str, String, Option<BTreeSet<(String, String)>>) = match method {
+      Method::GET => {
         let qs = serde_urlencoded::to_string(&input)?;
         if qs.is_empty() {
           (&uri, uri.clone(), None)
@@ -336,8 +336,8 @@ where
       .build(method.as_str(), &bare_uri, &params);
 
     let body: hyper::Body = match input.clone() {
-      Some(v) => match &method {
-        &Method::GET => hyper::Body::empty(),
+      Some(v) => match method {
+        Method::GET => hyper::Body::empty(),
         _ => serde_json::to_vec(&v)?.into(),
       },
       _ => hyper::Body::empty(),
@@ -422,8 +422,7 @@ where
   let resp = http.call(req).await.unwrap();
   debug!("{:?}", resp);
   if resp.status().as_u16() / 100 == 2 {
-    let res = hyper::body::to_bytes(resp.into_body()).await.unwrap().to_vec();
-    res
+    hyper::body::to_bytes(resp.into_body()).await.unwrap().to_vec()
   } else {
     vec![]
   }
