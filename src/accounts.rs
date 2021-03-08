@@ -67,6 +67,27 @@ where
       portfolio.get("PortfolioResponse").unwrap().clone(),
     )?)
   }
+
+  pub async fn position_lots(
+    &self,
+    account_id_key: &str,
+    position_id: &str,
+    callbacks: impl CallbackProvider,
+  ) -> Result<PositionLotsResponse> {
+    let portfolio: serde_json::Value = self
+      .session
+      .send(
+        Method::GET,
+        format!("/v1/accounts/{}/portfolio/{}", account_id_key, position_id),
+        empty_body(),
+        callbacks,
+      )
+      .await?;
+    debug!("position lots json: {}", serde_json::to_string_pretty(&portfolio)?);
+    Ok(serde_json::from_value(
+      portfolio.get("PositionLotsResponse").unwrap().clone(),
+    )?)
+  }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -643,6 +664,13 @@ pub struct PortfolioResponse {
   pub totals: Option<PortfolioTotals>,
   #[serde(rename = "AccountPortfolio", skip_serializing_if = "Vec::is_empty")]
   pub account_portfolio: Vec<AccountPortfolio>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PositionLotsResponse {
+  #[serde(rename = "PositionLot", skip_serializing_if = "Vec::is_empty")]
+  pub position_lot: Vec<PositionLot>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]

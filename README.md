@@ -48,11 +48,8 @@ async fn main() -> Result<()> {
     let balance = accounts
         .balance(
           &account.account_id_key,
-          BalanceRequest {
-            real_time_nav: if real_time { Some(real_time) } else { None },
-            ..Default::default()
-          },
-          oob,
+          BalanceRequest::default(),
+          etrade::OOB,
         )
         .await?;
     println!("{:?}", balance);
