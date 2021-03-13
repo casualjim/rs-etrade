@@ -37,6 +37,7 @@ mod windows;
 pub use windows::KeychainStore;
 
 pub use accounts::Api as Accounts;
+pub use session::CallbackProvider;
 pub use session::Session;
 pub use session::OOB;
 
@@ -249,11 +250,7 @@ impl Store for Memstore {
 
   fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
     let data = self.data.lock().unwrap();
-    Ok(
-      data
-        .get(namespace.as_ref())
-        .and_then(|r| r.get(key.as_ref()).cloned()),
-    )
+    Ok(data.get(namespace.as_ref()).and_then(|r| r.get(key.as_ref()).cloned()))
   }
 }
 
