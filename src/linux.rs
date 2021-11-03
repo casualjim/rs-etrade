@@ -46,7 +46,7 @@ impl Store for KeychainStore {
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
     let results = coll
       .search_items(vec![(namespace.as_ref(), key.as_ref())].into_iter().collect())
-      .map_err(|_e| anyhow!("failed to find secret ({}:{}) "))?;
+      .map_err(|e| anyhow!("failed to find secret ({}:{}): {}", namespace.as_ref(), key.as_ref(), e))?;
 
     match results.get(0) {
       Some(item) => item.delete().map_err(|e| anyhow!("failed to delete secret {}", e)),
