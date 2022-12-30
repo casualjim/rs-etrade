@@ -8,6 +8,7 @@ use http::{
   header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
   Method, Request, Response,
 };
+use oauth::ParameterList;
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 use tokio::io::{self, *};
@@ -21,7 +22,7 @@ use hyper_tls::HttpsConnector;
 use secstr::SecUtf8;
 
 use hyper::service::Service;
-use std::{collections::BTreeSet, fmt::Debug};
+use std::fmt::Debug;
 
 use super::{LIVE_URL, SANDBOX_URL};
 
@@ -166,7 +167,7 @@ where
     let request_token_ts = self.store.get(self.namespace(), REQUEST_TOKEN_CREATED)?.and_then(|v| {
       let b = NaiveDate::parse_from_str(v.unsecure(), "%Y-%m-%d").unwrap();
 
-      let d = Utc::today().with_timezone(&chrono_tz::US::Eastern).naive_local();
+      let d = Utc::now().with_timezone(&chrono_tz::US::Eastern).naive_local().date();
       if b.eq(&d) {
         Some(d)
       } else {
@@ -181,7 +182,7 @@ where
       _ => {
         debug!("getting a new request token");
         let uri = http::Uri::from_static(self.urls.request_token_url);
-        let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HmacSha1)
+        let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HMAC_SHA1)
           .callback("oob")
           .get(&uri, &());
 
@@ -197,11 +198,12 @@ where
           .store
           .put(self.namespace(), REQUEST_TOKEN_SECRET, request_token.secret.unsecure())?;
 
-        let today = Utc::today()
+        let today = Utc::now()
           .with_timezone(&chrono_tz::US::Eastern)
+          .date_naive()
           .format("%Y-%m-%d")
           .to_string();
-        self.store.put(self.namespace(), REQUEST_TOKEN_CREATED, &today)?;
+        self.store.put(self.namespace(), REQUEST_TOKEN_CREATED, today)?;
         Ok(request_token)
       }
     }
@@ -260,7 +262,7 @@ where
   ) -> Result<Credentials> {
     debug!("getting an access token");
     let uri = http::Uri::from_static(self.urls.access_token_url);
-    let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HmacSha1)
+    let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HMAC_SHA1)
       .token(Some(request_token.clone().into()))
       .verifier(pin.as_ref())
       .get(&uri, &());
@@ -281,7 +283,7 @@ where
   async fn renew_access_token(&self, consumer: &Credentials, request_token: &Credentials) -> Result<Credentials> {
     debug!("renewing an access token");
     let uri = http::Uri::from_static(self.urls.renew_access_token_url);
-    let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HmacSha1)
+    let authorization = oauth::Builder::<_, _>::new(consumer.clone().into(), oauth::HMAC_SHA1)
       .token(Some(request_token.clone().into()))
       .get(&uri, &());
 
@@ -315,25 +317,25 @@ where
 
     let uri = format!("{}{}", self.base_url(), path.as_ref());
 
-    let (bare_uri, full_uri, params): (&str, String, Option<BTreeSet<(String, String)>>) = match method {
+    let (bare_uri, full_uri, params) = match method {
       Method::GET => {
         let qs = serde_urlencoded::to_string(&input)?;
         if qs.is_empty() {
-          (&uri, uri.clone(), None)
+          (&uri, uri.clone(), vec![])
         } else {
           (
             &uri,
             format!("{}?{}", uri, serde_urlencoded::to_string(&input)?).parse()?,
-            Some(serde_urlencoded::from_str(qs.as_ref())?),
+            serde_urlencoded::from_str::<Vec<(String, String)>>(qs.as_ref())?,
           )
         }
       }
-      _ => (&uri, uri.clone(), None),
+      _ => (&uri, uri.clone(), vec![]),
     };
 
-    let authorization = oauth::Builder::new(consumer.into(), oauth::HmacSha1)
+    let authorization = oauth::Builder::new(consumer.into(), oauth::HMAC_SHA1)
       .token(Some(access_token.into()))
-      .build(method.as_str(), &bare_uri, &params);
+      .authorize(method.as_str(), bare_uri, &ParameterList::new(params));
 
     let body: hyper::Body = match input.clone() {
       Some(v) => match method {
@@ -451,21 +453,18 @@ mod tests {
 
     let data2: Option<&[(&str, &str)]> = None;
 
-    // let v = serde_json::to_string(&data).unwrap();
     info!(
       "query string: '{:?}'",
       data
         .map(|v| hyper::body::Body::from(serde_json::to_string(&v).unwrap()))
-        .unwrap_or(hyper::Body::empty())
+        .unwrap_or_else(hyper::Body::empty)
     );
     info!(
       "query string: '{:?}'",
       data2
         .map(|v| hyper::body::Body::from(serde_json::to_string(&v).unwrap()))
-        .unwrap_or(hyper::Body::empty())
+        .unwrap_or_else(hyper::Body::empty)
     );
-    // let n = serde_json::to_string(&None as &Option<&[u8]>).unwrap();
-    // info!("query string: '{}'", n);
   }
 
   #[tokio::test]

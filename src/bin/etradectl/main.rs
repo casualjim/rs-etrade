@@ -131,14 +131,14 @@ async fn main() -> Result<()> {
 
 fn pretty_print<T: Serialize>(data: &T) -> Result<()> {
   // let bytes = serde_json::to_vec_pretty(&data)?;
-  let bytes = serde_yaml::to_vec(&data)?;
+  let bytes = serde_yaml::to_string(&data)?;
 
   PrettyPrinter::new()
     .language("yaml")
     .line_numbers(false)
     .grid(false)
     .header(false)
-    .input(Input::from_bytes(&bytes))
+    .input(Input::from_bytes(bytes.as_bytes()))
     .true_color(true)
     .theme(env::var("BAT_THEME").unwrap_or_default())
     .print()
