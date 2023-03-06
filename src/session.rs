@@ -8,7 +8,7 @@ use http::{
   header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
   Method, Request, Response,
 };
-use oauth::ParameterList;
+
 use serde::de::DeserializeOwned;
 use serde::ser::Serialize;
 use tokio::io::{self, *};
@@ -22,7 +22,7 @@ use hyper_tls::HttpsConnector;
 use secstr::SecUtf8;
 
 use hyper::service::Service;
-use std::fmt::Debug;
+use std::{collections::BTreeMap, fmt::Debug, iter::FromIterator};
 
 use super::{LIVE_URL, SANDBOX_URL};
 
@@ -131,8 +131,8 @@ where
   }
 
   pub async fn initialize(&self, key: String, secret: String) -> Result<()> {
-    self.store.put(self.namespace(), API_KEY, key)?;
-    self.store.put(self.namespace(), SECRET_KEY, secret)?;
+    self.store.put(self.namespace(), API_KEY, key).await?;
+    self.store.put(self.namespace(), SECRET_KEY, secret).await?;
     Ok(())
   }
 
@@ -140,10 +140,12 @@ where
     let consumer_key = self
       .store
       .get(self.namespace(), API_KEY)
+      .await
       .and_then(|r| r.ok_or_else(|| anyhow!("secret {}@{} not found.", API_KEY, self.namespace())))?;
     let consumer_secret = self
       .store
       .get(self.namespace(), SECRET_KEY)
+      .await
       .and_then(|r| r.ok_or_else(|| anyhow!("secret {}@{} not found.", SECRET_KEY, self.namespace())))?;
 
     Ok(Credentials::new(consumer_key, consumer_secret))
@@ -151,29 +153,33 @@ where
 
   pub async fn invalidate(&self) -> Result<()> {
     debug!("invalidating credentials");
-    self.store.del(self.namespace(), ACCESS_TOKEN_KEY)?;
-    self.store.del(self.namespace(), ACCESS_TOKEN_SECRET)?;
+    self.store.del(self.namespace(), ACCESS_TOKEN_KEY).await?;
+    self.store.del(self.namespace(), ACCESS_TOKEN_SECRET).await?;
 
-    self.store.del(self.namespace(), REQUEST_TOKEN_SECRET)?;
-    self.store.del(self.namespace(), REQUEST_TOKEN_KEY)?;
-    self.store.del(self.namespace(), REQUEST_TOKEN_CREATED)
+    self.store.del(self.namespace(), REQUEST_TOKEN_SECRET).await?;
+    self.store.del(self.namespace(), REQUEST_TOKEN_KEY).await?;
+    self.store.del(self.namespace(), REQUEST_TOKEN_CREATED).await
   }
 
   async fn request_token(&self, consumer: &Credentials) -> Result<Credentials> {
     debug!("getting a request token");
-    let request_token = self.store.get(self.namespace(), REQUEST_TOKEN_KEY)?;
-    let request_secret = self.store.get(self.namespace(), REQUEST_TOKEN_SECRET)?;
+    let request_token = self.store.get(self.namespace(), REQUEST_TOKEN_KEY).await?;
+    let request_secret = self.store.get(self.namespace(), REQUEST_TOKEN_SECRET).await?;
 
-    let request_token_ts = self.store.get(self.namespace(), REQUEST_TOKEN_CREATED)?.and_then(|v| {
-      let b = NaiveDate::parse_from_str(v.unsecure(), "%Y-%m-%d").unwrap();
+    let request_token_ts = self
+      .store
+      .get(self.namespace(), REQUEST_TOKEN_CREATED)
+      .await?
+      .and_then(|v| {
+        let b = NaiveDate::parse_from_str(v.unsecure(), "%Y-%m-%d").unwrap();
 
-      let d = Utc::now().with_timezone(&chrono_tz::US::Eastern).naive_local().date();
-      if b.eq(&d) {
-        Some(d)
-      } else {
-        None
-      }
-    });
+        let d = Utc::now().with_timezone(&chrono_tz::US::Eastern).naive_local().date();
+        if b.eq(&d) {
+          Some(d)
+        } else {
+          None
+        }
+      });
     match (request_token_ts, request_token, request_secret) {
       (Some(_), Some(rt), Some(rs)) => {
         debug!("using cached request token");
@@ -193,17 +199,19 @@ where
         let request_token: Credentials = creds.into();
         self
           .store
-          .put(self.namespace(), REQUEST_TOKEN_KEY, request_token.key.unsecure())?;
+          .put(self.namespace(), REQUEST_TOKEN_KEY, request_token.key.unsecure())
+          .await?;
         self
           .store
-          .put(self.namespace(), REQUEST_TOKEN_SECRET, request_token.secret.unsecure())?;
+          .put(self.namespace(), REQUEST_TOKEN_SECRET, request_token.secret.unsecure())
+          .await?;
 
         let today = Utc::now()
           .with_timezone(&chrono_tz::US::Eastern)
           .date_naive()
           .format("%Y-%m-%d")
           .to_string();
-        self.store.put(self.namespace(), REQUEST_TOKEN_CREATED, today)?;
+        self.store.put(self.namespace(), REQUEST_TOKEN_CREATED, &today).await?;
         Ok(request_token)
       }
     }
@@ -212,8 +220,8 @@ where
   async fn access_token(&self, callback: impl CallbackProvider) -> Result<Credentials> {
     let consumer = self.consumer().await?;
 
-    let access_token = self.store.get(self.namespace(), ACCESS_TOKEN_KEY)?;
-    let access_secret = self.store.get(self.namespace(), ACCESS_TOKEN_SECRET)?;
+    let access_token = self.store.get(self.namespace(), ACCESS_TOKEN_KEY).await?;
+    let access_secret = self.store.get(self.namespace(), ACCESS_TOKEN_SECRET).await?;
 
     match (access_token, access_secret) {
       (Some(token), Some(secret)) => {
@@ -273,10 +281,12 @@ where
     let access_token: Credentials = creds.into();
     self
       .store
-      .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())?;
+      .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())
+      .await?;
     self
       .store
-      .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())?;
+      .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())
+      .await?;
     Ok(access_token)
   }
 
@@ -293,10 +303,12 @@ where
     let access_token: Credentials = creds.into();
     self
       .store
-      .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())?;
+      .put(self.namespace(), ACCESS_TOKEN_KEY, access_token.key.unsecure())
+      .await?;
     self
       .store
-      .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())?;
+      .put(self.namespace(), ACCESS_TOKEN_SECRET, access_token.secret.unsecure())
+      .await?;
     Ok(access_token)
   }
 
@@ -317,25 +329,28 @@ where
 
     let uri = format!("{}{}", self.base_url(), path.as_ref());
 
-    let (bare_uri, full_uri, params) = match method {
+    let (bare_uri, full_uri, params): (&str, String, BTreeMap<String, String>) = match method {
       Method::GET => {
         let qs = serde_urlencoded::to_string(&input)?;
         if qs.is_empty() {
-          (&uri, uri.clone(), vec![])
+          (&uri, uri.clone(), BTreeMap::default())
         } else {
+          let qss: Vec<(String, String)> = serde_urlencoded::from_str(qs.as_ref())?;
           (
             &uri,
             format!("{}?{}", uri, serde_urlencoded::to_string(&input)?).parse()?,
-            serde_urlencoded::from_str::<Vec<(String, String)>>(qs.as_ref())?,
+            BTreeMap::from_iter(qss),
           )
         }
       }
-      _ => (&uri, uri.clone(), vec![]),
+      _ => (&uri, uri.clone(), BTreeMap::default()),
     };
+
+    let oreq = oauth::request::AssertSorted::new(&params);
 
     let authorization = oauth::Builder::new(consumer.into(), oauth::HMAC_SHA1)
       .token(Some(access_token.into()))
-      .authorize(method.as_str(), bare_uri, &ParameterList::new(params));
+      .authorize(method.as_str(), bare_uri, &oreq);
 
     let body: hyper::Body = match input.clone() {
       Some(v) => match method {

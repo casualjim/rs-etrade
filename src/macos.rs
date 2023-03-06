@@ -1,5 +1,5 @@
 use crate::Store;
-use anyhow::{Result,anyhow};
+use anyhow::{anyhow, Result};
 use secstr::SecUtf8;
 use security_framework::os::macos::keychain::SecKeychain;
 use security_framework::os::macos::passwords::find_generic_password;
@@ -7,8 +7,9 @@ use security_framework::os::macos::passwords::find_generic_password;
 #[derive(Debug)]
 pub struct KeychainStore;
 
+#[async_trait]
 impl Store for KeychainStore {
-  fn put(
+  async fn put(
     &self,
     namespace: impl Into<String> + Send,
     key: impl Into<String> + Send,
@@ -25,13 +26,13 @@ impl Store for KeychainStore {
     Ok(())
   }
 
-  fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
+  async fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
     let (_, item) = find_generic_password(None, namespace.as_ref(), key.as_ref())?;
     item.delete();
     Ok(())
   }
 
-  fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
+  async fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
     let (secret, _) = find_generic_password(None, namespace.as_ref(), key.as_ref())?;
     Ok(Some(String::from_utf8(secret.to_vec())?.into()))
   }

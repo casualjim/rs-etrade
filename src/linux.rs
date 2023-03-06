@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+
+use async_trait::async_trait;
 use secstr::SecUtf8;
 
 use crate::Store;
@@ -13,8 +16,9 @@ impl KeychainStore {
   }
 }
 
+#[async_trait]
 impl Store for KeychainStore {
-  fn put(
+  async fn put(
     &self,
     namespace: impl Into<String> + Send,
     key: impl Into<String> + Send,
@@ -23,9 +27,12 @@ impl Store for KeychainStore {
     let ns = namespace.into();
     let k = key.into();
     let label = format!("secret for etradectl {}@{}", &k, &ns);
-    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
+    let svc = SecretService::connect(EncryptionType::Dh)
+      .await
+      .map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
     let coll = svc
       .get_default_collection()
+      .await
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
     coll
       .create_item(
@@ -35,37 +42,59 @@ impl Store for KeychainStore {
         true,
         "text/plain",
       )
+      .await
       .map(|_| ())
       .map_err(|e| anyhow!("failed to create secret: {}", e))
   }
 
-  fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
-    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
+  async fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
+    let svc = SecretService::connect(EncryptionType::Dh)
+      .await
+      .map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
+
     let coll = svc
       .get_default_collection()
+      .await
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
+
+    let ns_key = (namespace.as_ref(), key.as_ref());
+
     let results = coll
-      .search_items(vec![(namespace.as_ref(), key.as_ref())].into_iter().collect())
+      .search_items(HashMap::from([ns_key]))
+      .await
       .map_err(|e| anyhow!("failed to find secret ({}:{}): {}", namespace.as_ref(), key.as_ref(), e))?;
 
     match results.get(0) {
-      Some(item) => item.delete().map_err(|e| anyhow!("failed to delete secret {}", e)),
+      Some(item) => item
+        .delete()
+        .await
+        .map_err(|e| anyhow!("failed to delete secret {}", e)),
       _ => Ok(()),
     }
   }
 
-  fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
-    let svc = SecretService::new(EncryptionType::Dh).map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
+  async fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
+    let svc = SecretService::connect(EncryptionType::Dh)
+      .await
+      .map_err(|e| anyhow!("failed to acquire secret service: {}", e))?;
     let coll = svc
       .get_default_collection()
+      .await
       .map_err(|e| anyhow!("failed to acquire secret service collection: {}", e))?;
+
+    let ns_key = (namespace.as_ref(), key.as_ref());
+
     let results = coll
-      .search_items(vec![(namespace.as_ref(), key.as_ref())].into_iter().collect())
+      .search_items(HashMap::from([ns_key]))
+      .await
       .map_err(|e| anyhow!("failed to find secret ({}:{}): {}", namespace.as_ref(), key.as_ref(), e))?;
 
     match results.get(0) {
       Some(item) => {
-        let secret = item.get_secret().map_err(|e| anyhow!("failed to get secret: {}", e))?;
+        let secret = item
+          .get_secret()
+          .await
+          .map_err(|e| anyhow!("failed to get secret: {}", e))?;
 
         if secret.is_empty() {
           return Ok(None);
@@ -85,14 +114,14 @@ mod tests {
 
   #[tokio::test]
   async fn test_secret_service_store() {
-    verify_token_store(KeychainStore::new().await.unwrap())
+    verify_token_store(KeychainStore::new().await.unwrap()).await
   }
 
-  fn verify_token_store(token_store: impl crate::Store) {
+  async fn verify_token_store(token_store: impl crate::Store) {
     let expected: Result<SecUtf8> = Ok("hello".into());
-    token_store.put("my_svc", "api_key", "hello").unwrap();
-    assert_eq!(token_store.get("my_svc", "api_key").ok(), Some(expected.ok()));
-    assert!(token_store.del("my_svc", "api_key").is_ok());
-    assert!(token_store.get("my_svc", "api_key").unwrap().is_none());
+    token_store.put("my_svc", "api_key", "hello").await.unwrap();
+    assert_eq!(token_store.get("my_svc", "api_key").await.ok(), Some(expected.ok()));
+    assert!(token_store.del("my_svc", "api_key").await.is_ok());
+    assert!(token_store.get("my_svc", "api_key").await.unwrap().is_none());
   }
 }

@@ -10,6 +10,7 @@ use std::{
 };
 
 use anyhow::Result;
+use async_trait::async_trait;
 use secstr::SecUtf8;
 use std::sync::Mutex;
 use strum::EnumString;
@@ -195,15 +196,16 @@ where
   }
 }
 
+#[async_trait]
 pub trait Store {
-  fn put(
+  async fn put(
     &self,
     namespace: impl Into<String> + Send,
     key: impl Into<String> + Send,
     value: impl Into<SecUtf8> + Send,
   ) -> Result<()>;
-  fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()>;
-  fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>>;
+  async fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()>;
+  async fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>>;
 }
 
 #[derive(Debug)]
@@ -225,8 +227,9 @@ impl Default for Memstore {
   }
 }
 
+#[async_trait]
 impl Store for Memstore {
-  fn put(
+  async fn put(
     &self,
     namespace: impl Into<String> + Send,
     key: impl Into<String> + Send,
@@ -239,7 +242,7 @@ impl Store for Memstore {
     Ok(())
   }
 
-  fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
+  async fn del(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<()> {
     let mut data = self.data.lock().unwrap();
 
     if let Some(st) = data.get_mut(namespace.as_ref()) {
@@ -248,7 +251,7 @@ impl Store for Memstore {
     Ok(())
   }
 
-  fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
+  async fn get(&self, namespace: impl AsRef<str> + Send, key: impl AsRef<str> + Send) -> Result<Option<SecUtf8>> {
     let data = self.data.lock().unwrap();
     Ok(data.get(namespace.as_ref()).and_then(|r| r.get(key.as_ref()).cloned()))
   }
@@ -264,16 +267,16 @@ pub mod tests {
     std::env::set_var("RUST_LOG", "debug");
     let _ = pretty_env_logger::try_init();
   }
-  #[test]
-  fn test_mem_store() {
-    verify_token_store(Memstore::new());
+  #[tokio::test]
+  async fn test_mem_store() {
+    verify_token_store(Memstore::new()).await;
   }
 
-  pub fn verify_token_store(token_store: impl Store) {
+  pub async fn verify_token_store(token_store: impl Store) {
     let expected: Result<SecUtf8> = Ok("hello".into());
-    token_store.put("my_svc", "api_key", "hello").unwrap();
-    assert_eq!(token_store.get("my_svc", "api_key").ok(), Some(expected.ok()));
-    assert!(token_store.del("my_svc", "api_key").is_ok());
-    assert!(token_store.get("my_svc", "api_key").unwrap().is_none());
+    token_store.put("my_svc", "api_key", "hello").await.unwrap();
+    assert_eq!(token_store.get("my_svc", "api_key").await.ok(), Some(expected.ok()));
+    assert!(token_store.del("my_svc", "api_key").await.is_ok());
+    assert!(token_store.get("my_svc", "api_key").await.unwrap().is_none());
   }
 }
