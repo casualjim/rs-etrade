@@ -1,6 +1,6 @@
 [package]
 name = "etrade"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Ivan Porto Carrero <ivan@flanders.co.nz>"]
 edition = "2021"
 readme = "README.md"
