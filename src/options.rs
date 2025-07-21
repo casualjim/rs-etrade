@@ -59,15 +59,24 @@ where
       .session
       .send(
         Method::GET,
-        "/v1/market/quote/optionchains",
+        "/v1/market/optionchains",
         qs_params(params)?,
         callbacks,
       )
       .await?;
     debug!("chains json: {}", serde_json::to_string_pretty(&chains)?);
-    Ok(serde_json::from_value(
-      chains.get("OptionChainResponse").unwrap().clone(),
-    )?)
+    
+    // Check if we got an OptionChainResponse or if the API returned a QuoteResponse instead
+    if let Some(option_chain_response) = chains.get("OptionChainResponse") {
+      Ok(serde_json::from_value(option_chain_response.clone())?)
+    } else {
+      // If we got a QuoteResponse instead, this might indicate the endpoint is wrong
+      // or the parameters are not being passed correctly
+      Err(anyhow::anyhow!(
+        "Expected OptionChainResponse but got: {}",
+        serde_json::to_string_pretty(&chains)?
+      ))
+    }
   }
 
   pub async fn expire_dates<'a>(
@@ -85,9 +94,18 @@ where
       )
       .await?;
     debug!("dates json: {}", serde_json::to_string_pretty(&dates)?);
-    Ok(serde_json::from_value(
-      dates.get("OptionExpireDateResponse").unwrap().clone(),
-    )?)
+    
+    // Check if we got an OptionExpireDateResponse or if the API returned something else
+    if let Some(option_expire_date_response) = dates.get("OptionExpireDateResponse") {
+      Ok(serde_json::from_value(option_expire_date_response.clone())?)
+    } else {
+      // If we got something else, this might indicate the endpoint is wrong
+      // or the parameters are not being passed correctly
+      Err(anyhow::anyhow!(
+        "Expected OptionExpireDateResponse but got: {}",
+        serde_json::to_string_pretty(&dates)?
+      ))
+    }
   }
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
@@ -121,9 +139,12 @@ pub struct GetOptionChainsRequest<'a> {
   pub expiry_month: Option<usize>,
   pub expiry_day: Option<usize>,
   pub strike_price_near: Option<f64>,
-  pub no_of_strikes: Option<f64>,
-  pub include_weekly: bool,
-  pub skip_adjusted: bool,
+  pub no_of_strikes: Option<u16>,
+  pub include_weekly: Option<bool>,
+  pub skip_adjusted: Option<bool>,
+  pub option_category: Option<OptionCategory>,
+  pub chain_type: Option<ChainType>,
+  pub price_type: Option<PriceType>,
 }
 
 impl<'a> Default for GetOptionChainsRequest<'a> {
@@ -135,8 +156,11 @@ impl<'a> Default for GetOptionChainsRequest<'a> {
       expiry_day: None,
       strike_price_near: None,
       no_of_strikes: None,
-      include_weekly: false,
-      skip_adjusted: true,
+      include_weekly: None,
+      skip_adjusted: None,
+      option_category: None,
+      chain_type: None,
+      price_type: None,
     }
   }
 }
@@ -449,78 +473,57 @@ pub struct FundamentalQuoteDetails {
 #[serde(rename_all = "camelCase", default)]
 pub struct AllQuoteDetails {
   pub adjusted_flag: bool,
-  pub annual_dividend: f64,
+  pub annual_dividend: Option<f64>,
   pub ask: f64,
-  pub ask_exchange: String,
+  pub ask_exchange: Option<String>,
   pub ask_size: i64,
   pub ask_time: String,
+  pub average_volume: i64,
+  pub beta: f64,
   pub bid: f64,
-  pub bid_exchange: String,
+  pub bid_exchange: Option<String>,
   pub bid_size: i64,
   pub bid_time: String,
+  pub cash_deliverable: f64,
   pub change_close: f64,
   pub change_close_percentage: f64,
   pub company_name: String,
+  pub contract_size: f64,
   pub days_to_expiration: i64,
+  pub declared_dividend: f64,
   pub dir_last: String,
   pub dividend: f64,
+  pub dividend_payable_date: i64,
   pub eps: f64,
   pub est_earnings: f64,
   pub ex_dividend_date: i64,
-  pub exchg_last_trade: String,
-  pub fsi: String,
+  pub expiration_date: i64,
+  pub exchg_last_trade: Option<String>,
+  pub fsi: Option<String>,
   pub high: f64,
   pub high52: f64,
-  pub high_ask: f64,
-  pub high_bid: f64,
+  pub intrinsic_value: f64,
   pub last_trade: f64,
   pub low: f64,
   pub low52: f64,
-  pub low_ask: f64,
-  pub low_bid: f64,
-  pub number_of_trades: i64,
+  pub market_cap: f64,
+  pub next_earning_date: String,
   pub open: f64,
   pub open_interest: i64,
-  pub option_style: String,
-  pub option_underlier: String,
-  pub option_underlier_exchange: String,
+  pub open_multiplier: f64,
+  pub option_style: Option<String>,
+  pub pe: f64,
   pub previous_close: f64,
   pub previous_day_volume: i64,
   pub primary_exchange: String,
+  pub shares_outstanding: f64,
   pub symbol_description: String,
-  pub today_close: f64,
+  pub time_of_last_trade: i64,
+  pub time_premium: f64,
   pub total_volume: i64,
   pub upc: i64,
-  pub volume_10_day: i64,
-  #[serde(rename = "OptionDeliverable", skip_serializing_if = "Vec::is_empty")]
-  pub option_deliverable_list: Vec<OptionDeliverable>,
-  pub cash_deliverable: f64,
-  pub market_cap: f64,
-  pub shares_outstanding: f64,
-  pub next_earning_date: String,
-  pub beta: f64,
-  #[serde(rename = "yield")]
-  pub dividend_yield: f64,
-  pub declared_dividend: f64,
-  pub dividend_payable_date: i64,
-  pub pe: f64,
-  pub market_close_bid_size: i64,
-  pub market_close_ask_size: i64,
-  pub market_close_volume: i64,
-  pub week_52_low_date: i64,
   pub week_52_hi_date: i64,
-  pub intrinsic_value: f64,
-  pub time_premium: f64,
-  pub option_multiplier: f64,
-  pub contract_size: f64,
-  pub expiration_date: i64,
-  #[serde(skip_serializing_if = "Option::is_none")]
-  pub eh_quote: Option<ExtendedHourQuoteDetail>,
-  pub option_previous_bid_price: f64,
-  pub option_previous_ask_price: f64,
-  pub osi_key: String,
-  pub time_of_last_trade: i64,
-  pub average_volume: i64,
+  pub week_52_low_date: i64,
 }
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 #[serde(rename_all = "camelCase", default)]

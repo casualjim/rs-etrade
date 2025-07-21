@@ -74,3 +74,4 @@ optional = true
 [[bin]]
 name = "etradectl"
 path = "src/bin/etradectl/main.rs"
+required-features = ["keychain"]

@@ -17,6 +17,7 @@ use strum::EnumString;
 
 pub mod accounts;
 pub mod alerts;
+pub mod market;
 pub mod options;
 pub mod orders;
 mod session;
